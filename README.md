@@ -1,18 +1,24 @@
-# DOB98 Single Index (fixed paths)
+# DOB98 User Panel
 
-## File structure
-- `index.html` — all views (Home, Register, Login, Reset Password, Dashboard, Deposit, Withdraw, histories, Casino, Sports and Aviator) and all primary color styling in its inline `<style>`.
-- `app.js` — navigation and demo UI interactions. Kept beside `index.html` so the relative path works on GitHub Pages.
-- `app.css` — small accessibility/layout helpers only; no color palette.
-- `assets/aviator-standalone-2.html` — supplied original Aviator standalone file.
+This panel uses the shared DOB98 API for registration/login, wallet balance, deposit/withdraw requests, and transaction history. It is not a standalone wallet: the user panel and admin panel must point to the same deployed API/database.
 
-## Deploy
-Upload **all** files/folders in this archive to the same GitHub Pages publishing root:
-`index.html`, `app.js`, `app.css`, `assets/`.
+## Connect the API
+1. Deploy the backend included in `DOB98_Admin_Panel/server` on a private Node.js 20+ server with HTTPS in production.
+2. Configure its `.env` using the backend README, including `APP_ORIGIN` (this user site's origin), `API_PUBLIC_URL` (the public API base origin), a long random `JWT_SECRET`, admin credentials, and SMTP settings.
+3. In `app.js`, change `http://localhost:3000/api` in `window.DOB98_API_BASE || 'http://localhost:3000/api'` to your API URL, e.g. `https://api.example.com/api`. Do the same in admin `js/admin.js`. Both must use the exact same API.
+4. Configure a bKash number in the Admin Panel. Deposit requests stay pending until admin approves them. The balance is credited only once when approved. Withdrawal requests reserve the balance; rejection refunds it, approval leaves the amount reserved as paid/processed.
+5. Set up SMTP so users can verify Gmail before login. The backend emails a verification link.
 
-The page references `app.css`, `app.js`, and `assets/aviator-standalone-2.html` relative to `index.html`. Do not upload only `index.html`.
-If GitHub Pages is publishing from a `/docs` folder, upload all files into `/docs` instead.
-After deployment, wait for GitHub Pages to finish, then hard-refresh or open the URL in a private tab to avoid stale cache.
+## Account rules
+- Gmail address only; an email and username can each be registered once.
+- Username: 3–24 letters/numbers only.
+- Password: exactly 6 digits, as requested.
 
-## Notes
-Forms and balances are demo UI only. They do not create authenticated accounts or verify/transfer real money. Production authentication, email verification, deposits, withdrawals, and wallet accounting require a secure backend.
+## Requests and history
+Users can add an optional message to deposit/withdraw requests. Admin sees that message alongside the request; users see the request status and message in their own history. Admin approval credits a deposit to the account ledger.
+
+## Access control and balance safety
+The front end now redirects guests to Login before opening Dashboard, Deposit, Withdraw, transaction history, or game views, including direct hash navigation. The backend remains the authority: it must reject withdrawals unless the authenticated account has sufficient available balance. Never deploy this site without the shared API/database configured; a front-end-only balance is not a real account balance. A deposit request showing `pending` is expected until an admin approves it; the balance must not increase before approval.
+
+## Important
+The included Aviator UI is not connected to the wallet ledger for real-money betting. Do not use this prototype to handle real funds without a professional security review, payment-provider reconciliation, appropriate licensing, and production controls.

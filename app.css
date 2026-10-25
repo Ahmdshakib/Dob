@@ -2,3 +2,9 @@
 [hidden],.hidden{display:none!important}
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid currentColor;outline-offset:3px}
 section[id],main[id]{scroll-margin-top:20px}
+
+/* Hide header Login/Register actions after successful registration or login. */
+#top-auth-actions[hidden] { display: none !important; }
+
+
+.profile-card{display:flex;align-items:center;gap:14px;padding:18px;background:linear-gradient(115deg,#0b2a4c,#071327 72%);border-color:#28517a}.profile-avatar{width:68px;height:68px;flex:0 0 68px;display:grid;place-items:center;border-radius:50%;font-size:27px;font-weight:900;color:#071327;background:linear-gradient(145deg,#ffe36b,#ffad00);border:3px solid #fff2b8;box-shadow:0 0 0 4px #ffbf1b18}.profile-meta{min-width:0;flex:1}.profile-meta h3{font-size:19px;margin:0 0 1px;overflow-wrap:anywhere}.profile-meta p{margin:2px 0;color:#a9c4e4;font-size:12px}.profile-meta .profile-joined{font-size:11px;color:#7f9fbe}.profile-help{font-size:11px;color:#91a9c6;margin:10px 0 0}.profile-card .btn{white-space:nowrap}@media(max-width:640px){.profile-card{gap:10px;padding:13px}.profile-avatar{width:54px;height:54px;flex-basis:54px;font-size:22px}.profile-meta h3{font-size:16px}.profile-card .btn{padding:8px 9px;font-size:11px}}
