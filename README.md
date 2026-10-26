@@ -12,7 +12,7 @@ This panel uses the shared DOB98 API for registration/login, wallet balance, dep
 ## Account rules
 - Gmail address only; an email and username can each be registered once.
 - Username: 3–24 letters/numbers only.
-- Password: exactly 6 digits, as requested.
+- Password: 6–72 characters minimum/maximum; letters and numbers are allowed (for example, sha4488kib).
 
 ## Requests and history
 Users can add an optional message to deposit/withdraw requests. Admin sees that message alongside the request; users see the request status and message in their own history. Admin approval credits a deposit to the account ledger.
