@@ -1,63 +1,51 @@
+/* DOB98 local demo auth: records stay in this browser only; not suitable for production. */
 (() => {
-  'use strict';
-  const $ = (s, root=document) => root.querySelector(s);
-  const $$ = (s, root=document) => Array.from(root.querySelectorAll(s));
-  const API = (window.DOB98_API_BASE || 'http://localhost:3000/api').replace(/\/$/, '');
-  const views = $$('[data-view]');
-  let token = sessionStorage.getItem('dob98_user_token') || '';
-  let currentUser = null;
-  const topAuthActions = $('#top-auth-actions');
-  function syncAuthButtons(){ if(topAuthActions) topAuthActions.hidden = Boolean(token) || sessionStorage.getItem('dob98_registered_this_session') === '1'; }
-  let depositMethod='bKash', depositAmount=500, withdrawMethod='bKash', withdrawAmount=1000;
-  const protectedPages = new Set(['dashboard','deposit','withdraw','deposit-history','withdraw-history','aviator','casino','sports']);
-  function showPage(page, updateHash=true) {
-    if (!views.some(v => v.dataset.view === page)) page = 'index';
-    // Central guard: no account, no wallet actions, history, or game views.
-    if (protectedPages.has(page) && !token) {
-      page = 'login';
-      setStatus($('#login-result'), 'Please register or login first to access games, deposit, withdraw, and account history.');
-    }
-    syncAuthButtons();
-    views.forEach(v => { const active = v.dataset.view === page; v.classList.toggle('active', active); v.setAttribute('aria-hidden', active ? 'false' : 'true'); });
-    $$('.nav [data-page]').forEach(a => a.classList.toggle('active', a.dataset.page === page));
-    document.title = (page === 'index' ? 'Home' : page.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase())) + ' | DOB98';
-    if (updateHash && location.hash !== '#'+page) history.pushState({page}, '', '#'+page);
-    window.scrollTo(0,0);
-    if (page === 'dashboard' || page === 'deposit-history' || page === 'withdraw-history') refreshAccount().catch(()=>{});
-  }
-  document.addEventListener('click', e => {
-    const target = e.target instanceof Element ? e.target : e.target.parentElement;
-    const link = target && target.closest('[data-page]'); if (!link) return;
-    const page = link.dataset.page; if (!views.some(v => v.dataset.view === page)) return;
-    e.preventDefault();
-    if (page === 'login' && link.textContent.trim().toLowerCase()==='logout') { logout(); return; }
-    showPage(page);
-  });
-  document.addEventListener('keydown', e => { if(e.key!=='Enter'&&e.key!==' ')return;const target=e.target instanceof Element?e.target.closest('[data-page][role="link"]'):null;if(!target)return;const page=target.dataset.page;if(!views.some(v=>v.dataset.view===page))return;e.preventDefault();showPage(page); });
-  window.addEventListener('popstate',()=>showPage(location.hash.slice(1)||'index',false));
-  window.addEventListener('hashchange',()=>showPage(location.hash.slice(1)||'index',false));
-  function setStatus(el,msg,ok=false){if(!el)return;el.textContent=msg;el.style.color=ok?'#5cf0b3':'#ffcf5b';}
-  async function api(path,opts={}) { const headers={'Content-Type':'application/json',...(opts.headers||{})};if(token)headers.Authorization='Bearer '+token;let r;try{r=await fetch(API+path,{...opts,headers})}catch(e){throw Error('Server/API connected নেই। API server চালু করে DOB98_API_BASE ঠিক করুন।')}const d=await r.json().catch(()=>({error:'Invalid server response'}));if(!r.ok)throw Error(d.error||'Request failed');return d; }
-  function money(n){return '৳ '+Number(n||0).toLocaleString('en-BD',{minimumFractionDigits:2,maximumFractionDigits:2});}
-  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-  function formatJoined(value){if(!value)return 'Member since: date unavailable';const date=new Date(value);if(Number.isNaN(date.getTime()))return 'Member since: date unavailable';return 'Member since: '+date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}
-  function renderProfile(user){if(!user)return;const username=String(user.username||user.name||'User');const displayName=String(user.name||user.fullName||username);const avatar=$('#profile-avatar');if(avatar)avatar.textContent=(displayName.trim()[0]||username[0]||'U').toUpperCase();const name=$('#profile-name');if(name)name.textContent=displayName;const handle=$('#profile-username');if(handle)handle.textContent='@'+username;const joined=$('#profile-joined');if(joined)joined.textContent=formatJoined(user.createdAt||user.created_at||user.joinedAt||user.registeredAt);}
-  async function refreshAccount(){if(!token)return;const d=await api('/me');currentUser=d.user;renderProfile(d.user);$('#wallet-balance') && ($('#wallet-balance').textContent=money(d.user.balance));$('#wallet-deposits')&&($('#wallet-deposits').textContent=money(d.user.totalDeposit));$('#wallet-withdrawals')&&($('#wallet-withdrawals').textContent=money(d.user.totalWithdraw));$('#account-message')&&($('#account-message').textContent='Logged in as '+d.user.username+'. Your wallet and history are synced with the server.');renderHistory('#deposit-history-rows',d.depositHistory||[],'deposit');renderHistory('#withdraw-history-rows',d.withdrawHistory||[],'withdraw');}
-  function renderHistory(sel,rows,type){const body=$(sel);if(!body)return;body.replaceChildren();if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.textContent='No requests yet.';tr.append(td);body.append(tr);return;}rows.forEach(x=>{const tr=document.createElement('tr');const vals=type==='deposit'?[x.id.slice(0,8),money(x.amount),x.method,x.trxId||'—',x.status,x.createdAt]:[x.id.slice(0,8),money(x.amount),x.method,(x.walletNumber||'').replace(/^(\d{3})\d{5}(\d{3})$/,'$1•••••$2'),x.status,x.createdAt];vals.forEach(v=>{const td=document.createElement('td');td.textContent=String(v??'—');tr.append(td)});body.append(tr);if(x.note){const noteTr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.textContent='Message to admin: '+x.note;td.style.color='#b8c9e1';noteTr.append(td);body.append(noteTr)}});}
-  function logout(){token='';currentUser=null;sessionStorage.removeItem('dob98_user_token');sessionStorage.removeItem('dob98_registered_this_session');syncAuthButtons();showPage('index');setStatus($('#login-result'),'Logged out.',true);}
-  function bindAmount(selector,key,callback){$$(selector).forEach(btn=>btn.addEventListener('click',()=>{callback(btn.dataset[key]);const parent=btn.parentElement;$$('.amount',parent).forEach(b=>b.classList.toggle('selected',b===btn));}));}
-  bindAmount('[data-method]','method',v=>{depositMethod=v;$('#deposit-note')?.classList.toggle('hidden',v!=='Nagad');$('#deposit-fields')?.classList.toggle('hidden',v==='Nagad');});
-  bindAmount('[data-amount]','amount',v=>depositAmount=Number(v));
-  bindAmount('[data-wmethod]','wmethod',v=>{withdrawMethod=v;$('#withdraw-note')?.classList.toggle('hidden',v!=='Nagad');$('#withdraw-fields')?.classList.toggle('hidden',v==='Nagad');});
-  bindAmount('[data-wamount]','wamount',v=>withdrawAmount=Number(v));
-  $('#register-form')?.addEventListener('submit',async e=>{e.preventDefault();const email=$('#reg-email').value.trim(),username=$('#reg-username').value.trim(),password=$('#reg-password').value,confirm=$('#reg-confirm').value,hint=$('#password-hint');if(!/^[A-Za-z0-9]{3,24}$/.test(username)){setStatus(hint,'Username must be 3–24 letters/numbers only.');return;}if(password.length<6||password.length>72){setStatus(hint,'Password must be 6–72 characters. Letters and numbers are allowed.');return;}if(password!==confirm){setStatus(hint,'Passwords do not match.');return;}try{const d=await api('/auth/register',{method:'POST',body:JSON.stringify({email,username,password})});sessionStorage.setItem('dob98_registered_this_session','1');syncAuthButtons();setStatus(hint,d.message+' Then verify your Gmail and login using the link below.',true);}catch(err){setStatus(hint,err.message);}});
-  $('#login-form')?.addEventListener('submit',async e=>{e.preventDefault();const identity=$('#login-identity').value.trim(),password=$('#login-password').value;try{const d=await api('/auth/login',{method:'POST',body:JSON.stringify({identity,password})});token=d.token;sessionStorage.setItem('dob98_user_token',token);sessionStorage.removeItem('dob98_registered_this_session');currentUser=d.user;syncAuthButtons();setStatus($('#login-result'),'Login successful.',true);await refreshAccount();showPage('dashboard');}catch(err){setStatus($('#login-result'),err.message);}});
-  $('#reset-form')?.addEventListener('submit',async e=>{e.preventDefault();alert('Password reset endpoint is not fully implemented yet. Contact site admin.');});
-  $('#deposit-form')?.addEventListener('submit',async e=>{e.preventDefault();const out=$('#deposit-result'),trxId=$('#deposit-trx').value.trim(),note=$('#deposit-message')?.value.trim()||'';if(!token){showPage('login');setStatus($('#login-result'),'Please login before submitting a deposit request.');return;}if(depositMethod!=='bKash'){setStatus(out,'Only bKash requests are currently available.');return;}try{const d=await api('/transactions/deposit',{method:'POST',body:JSON.stringify({amount:depositAmount,method:'bkash',trxId,note})});setStatus(out,d.message+' Admin approval হলে balance add হবে.',true);e.currentTarget.reset();await refreshAccount();showPage('deposit-history');}catch(err){setStatus(out,err.message);}});
-  $('#withdraw-form')?.addEventListener('submit',async e=>{e.preventDefault();const out=$('#withdraw-result'),walletNumber=$('#withdraw-wallet').value.trim(),note=$('#withdraw-message')?.value.trim()||'';if(!token){showPage('login');setStatus($('#login-result'),'Please login before requesting a withdrawal.');return;}if(withdrawMethod!=='bKash'){setStatus(out,'Only bKash withdrawals are currently available.');return;}try{const d=await api('/transactions/withdraw',{method:'POST',body:JSON.stringify({amount:withdrawAmount,method:'bkash',walletNumber,note})});setStatus(out,d.message,true);e.currentTarget.reset();await refreshAccount();showPage('withdraw-history');}catch(err){setStatus(out,err.message);}});
-  api('/public/settings').then(s=>{const field=$('#deposit-fields input[readonly]');if(field&&s.bkashNumber)field.value=s.bkashNumber;}).catch(()=>{});
-  if(token)refreshAccount().catch(()=>{token='';sessionStorage.removeItem('dob98_user_token')});
-  window.addEventListener('focus',()=>{if(token)refreshAccount().catch(()=>{});});
-  syncAuthButtons();
-  showPage(location.hash.slice(1)||'index',false);
+ 'use strict';
+ const API=(window.DOB98_API_BASE||'http://localhost:3000/api').replace(/\/$/,'');
+ let token=sessionStorage.getItem('dob98_token')||'';
+ let me=null,toastTimer;
+ const USERS_KEY='dob98_local_users_v1', CURRENT_KEY='dob98_local_current_v1';
+ const getUsers=()=>{try{return JSON.parse(localStorage.getItem(USERS_KEY)||'[]')}catch{return []}};
+ const setUsers=x=>localStorage.setItem(USERS_KEY,JSON.stringify(x));
+ const norm=x=>String(x||'').trim().toLowerCase();
+ const hashlessNote='Local demo mode: account data is stored only in this browser.';
+ const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+ const money=n=>'৳ '+Number(n||0).toLocaleString('en-BD',{minimumFractionDigits:2,maximumFractionDigits:2});
+ function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3200)}
+ async function api(path,opts={}){const headers={'Content-Type':'application/json',...(opts.headers||{})};if(token)headers.Authorization='Bearer '+token;let res;try{res=await fetch(API+path,{...opts,headers})}catch(e){throw Error('API is unreachable. Start the backend and check DOB98_API_BASE.')}const data=await res.json().catch(()=>({error:'Invalid server response'}));if(!res.ok)throw Error(data.error||'Request failed');return data}
+ function message(form,msg,ok=false){const el=$('.form-msg',form);if(el){el.textContent=msg;el.style.color=ok?'#5cf0b3':'#ffcf5b'}}
+ function validStrong(p){return p.length>=12&&/[a-z]/.test(p)&&/[A-Z]/.test(p)&&/[0-9]/.test(p)&&/[^A-Za-z0-9]/.test(p)}
+ $('#menuToggle').addEventListener('click',()=>$('#mainNav').classList.toggle('open'));
+ $$('#mainNav a').forEach(a=>a.addEventListener('click',()=>$('#mainNav').classList.remove('open')));
+ $$('[data-page]').forEach(b=>b.addEventListener('click',()=>location.hash='#'+b.dataset.page));
+ $$('[data-scroll]').forEach(b=>b.addEventListener('click',()=>location.hash='#'+b.dataset.scroll));
+ $('#registerForm').addEventListener('submit',e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));
+ if(!/^[^\\s@]+@gmail\\.com$/i.test(d.email)){message(f,'শুধু সঠিক Gmail ব্যবহার করুন।');return}
+ if(!/^[a-zA-Z0-9_]{3,24}$/.test(d.username)){message(f,'Username 3–24 অক্ষর; ইংরেজি অক্ষর, সংখ্যা ও _ ব্যবহার করুন।');return}
+ if(d.password.length<6){message(f,'Password কমপক্ষে ৬ অক্ষরের দিন।');return}
+ if(d.password!==d.confirmPassword){message(f,'দুটি Password মেলেনি।');return}
+ const users=getUsers();if(users.some(u=>norm(u.email)===norm(d.email))){message(f,'এই Gmail আগেই ব্যবহার হয়েছে।');return}
+ if(users.some(u=>norm(u.username)===norm(d.username))){message(f,'এই Username আগেই ব্যবহার হয়েছে।');return}
+ users.push({email:d.email.trim(),username:d.username.trim(),password:d.password,balance:0,totalDeposit:0,totalWithdraw:0,bonus:0,createdAt:new Date().toISOString()});setUsers(users);f.reset();message(f,'Registration সফল হয়েছে। এখন Login করুন।',true);toast('Account created.');location.hash='#login';
+ });
+ $('#loginForm').addEventListener('submit',e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f)),identity=norm(d.identity);
+ const u=getUsers().find(x=>norm(x.email)===identity||norm(x.username)===identity);
+ if(!u||u.password!==d.password){message(f,'Gmail/Username অথবা Password ভুল।');toast('Login তথ্য ভুল।');return}
+ me={...u,emailVerified:true};localStorage.setItem(CURRENT_KEY,JSON.stringify({email:u.email}));token='local-demo';sessionStorage.setItem('dob98_token',token);refreshView();message(f,'Login সফল হয়েছে।',true);toast('Welcome back, '+u.username);location.hash='#dashboard';
+ });
+ $('#forgotForm').addEventListener('submit',e=>{e.preventDefault();message(e.currentTarget,'এই offline demo-তে email reset পাঠানো যায় না। Password মনে না থাকলে local account মুছে নতুন করে register করতে হবে।')});
+ $('#logoutBtn').addEventListener('click',()=>{token='';me=null;sessionStorage.removeItem('dob98_token');localStorage.removeItem(CURRENT_KEY);refreshView();toast('Logged out.');location.hash='#home'});
+ function refresh(){let saved=null;try{saved=JSON.parse(localStorage.getItem(CURRENT_KEY)||'null')}catch{};me=saved?getUsers().find(u=>norm(u.email)===norm(saved.email))||null:null;refreshView();const bk=$('#bkashNumber');if(bk)bk.textContent='Demo mode — payment processing unavailable';}
+ function refreshView(){const auth=!!me;$('#userName').textContent=auth?me.username:'guest';$('#headerBalance').textContent=money(auth?me.balance:0);$('#dashBalance').textContent=money(auth?me.balance:0);$('#totalDeposit').textContent=money(auth?me.totalDeposit:0);$('#totalWithdraw').textContent=money(auth?me.totalWithdraw:0);$('#totalBonus').textContent=money(auth?me.bonus:0);$('#profileMessage').textContent=auth?`${me.username} · ${me.email} · ${me.emailVerified?'Email verified':'Email verification required'}`:'Sign in to view your account details.'}
+ function renderMe(r){refreshView();fillRows('#depositRows',r.depositHistory||[],'deposit');fillRows('#withdrawRows',r.withdrawHistory||[],'withdraw')}
+ function fillRows(sel,rows,type){const body=$(sel);body.replaceChildren();if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.className='empty';td.textContent='No transactions yet.';tr.append(td);body.append(tr);return}for(const x of rows){const vals=type==='deposit'?[x.id,money(x.amount),x.method,x.trxId||'—',x.status,x.createdAt]:[x.id,money(x.amount),x.method,(x.walletNumber||'').replace(/^(\d{3})\d{5}(\d{3})$/,'$1•••••$2'),x.status,x.createdAt];const tr=document.createElement('tr');vals.forEach((v,i)=>{const td=document.createElement('td');if(i===4){const span=document.createElement('span');span.className='status '+String(v).toLowerCase();span.textContent=v;td.append(span)}else td.textContent=String(v??'—');tr.append(td)});body.append(tr)}}
+ $$('.amount-options').forEach(group=>{group.addEventListener('click',e=>{const b=e.target.closest('[data-amount]');if(!b)return;$$('button',group).forEach(x=>x.classList.toggle('selected',x===b));const input=group.parentElement.querySelector('input[name="amount"]');if(input)input.value=b.dataset.amount})});
+ $('#depositForm').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));if(!me){message(f,'Please login first.');return}if(d.method==='nagad'){message(f,'Nagad not available.');return}message(f,'Offline demo: Deposit request পাঠাতে backend/server লাগবে। কোনো টাকা জমা হয়নি।');});
+ $('#withdrawForm').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,d=Object.fromEntries(new FormData(f));if(!me){message(f,'Please login first.');return}if(d.method==='nagad'){message(f,'Nagad not available.');return}message(f,'Offline demo: Withdraw request পাঠাতে backend/server লাগবে। কোনো টাকা পাঠানো হয়নি।');});
+ // Local visual demo only. These controls never call the wallet API and cannot cash out real funds.
+ let demoBet=null,flightTimer=null,mult=1;
+ $$('[data-step]').forEach(b=>b.addEventListener('click',()=>{const el=$('#betAmount');el.value=Math.max(10,Math.min(5000,Number(el.value||100)+Number(b.dataset.step)))}));
+ $('#betBtn').addEventListener('click',()=>{if(demoBet){toast('A demo bet is already active.');return}const amount=Number($('#betAmount').value);if(!Number.isFinite(amount)||amount<10||amount>5000){toast('Demo bet must be between ৳10 and ৳5,000.');return}demoBet=amount;mult=1;$('#multiplier').textContent='1.00x';$('#flightStatus').textContent='Demo flight running — play credits only';$('#betBtn').disabled=true;$('#cashoutBtn').disabled=false;let t=Date.now();flightTimer=setInterval(()=>{mult=Math.exp((Date.now()-t)/10000*.06);$('#multiplier').textContent=mult.toFixed(2)+'x';$('#flight-plane').style.left=Math.min(75,(Date.now()-t)/80)+'%';if(mult>2.1){clearInterval(flightTimer);demoBet=null;$('#flightStatus').textContent='Demo round ended — no wallet changes';$('#betBtn').disabled=false;$('#cashoutBtn').disabled=true;toast('Demo round ended. No funds were moved.')}},100)});
+ $('#cashoutBtn').addEventListener('click',()=>{if(!demoBet)return;clearInterval(flightTimer);demoBet=null;$('#flightStatus').textContent='Demo cashout — no wallet changes';$('#betBtn').disabled=false;$('#cashoutBtn').disabled=true;toast('Demo cashout only. No funds were moved.')});
+ refresh();
 })();

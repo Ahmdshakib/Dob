@@ -1,0 +1,1 @@
+Canonical backend implementation is included in DOB98_Admin_Panel/server/. This reference folder intentionally avoids a second divergent copy. Run that server for both panels.

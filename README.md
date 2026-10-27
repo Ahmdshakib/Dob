@@ -1,24 +1,23 @@
 # DOB98 User Panel
 
-This panel uses the shared DOB98 API for registration/login, wallet balance, deposit/withdraw requests, and transaction history. It is not a standalone wallet: the user panel and admin panel must point to the same deployed API/database.
+Responsive static frontend matching the supplied DOB98 reference layout. Open `index.html` for a visual preview; account, history, and payment requests require the API server described in `../DOB98_Admin_Panel/server/README.md`.
 
-## Connect the API
-1. Deploy the backend included in `DOB98_Admin_Panel/server` on a private Node.js 20+ server with HTTPS in production.
-2. Configure its `.env` using the backend README, including `APP_ORIGIN` (this user site's origin), `API_PUBLIC_URL` (the public API base origin), a long random `JWT_SECRET`, admin credentials, and SMTP settings.
-3. In `app.js`, change `http://localhost:3000/api` in `window.DOB98_API_BASE || 'http://localhost:3000/api'` to your API URL, e.g. `https://api.example.com/api`. Do the same in admin `js/admin.js`. Both must use the exact same API.
-4. Configure a bKash number in the Admin Panel. Deposit requests stay pending until admin approves them. The balance is credited only once when approved. Withdrawal requests reserve the balance; rejection refunds it, approval leaves the amount reserved as paid/processed.
-5. Set up SMTP so users can verify Gmail before login. The backend emails a verification link.
+## Run
+1. Install Node.js 20 or newer.
+2. Start the backend from the Admin ZIP (`server/`): `npm install`, configure `.env`, then `npm start`.
+3. Serve this folder over HTTP (not `file://`) using any static server. Set `window.DOB98_API_BASE` before `js/app.js` if the API is hosted elsewhere; default is `http://localhost:3000/api`.
+4. Register, verify the email using the configured mail transport, then sign in.
 
-## Account rules
-- Gmail address only; an email and username can each be registered once.
-- Username: 3–24 letters/numbers only.
-- Password: 6–72 characters minimum/maximum; letters and numbers are allowed (for example, sha4488kib).
+## Aviator source map
+- Original supplied file preserved unchanged at `legacy/aviator-standalone-2.original.html`.
+- Original CSS: the single `<style>` block near the start of that legacy file (starts at source line 8).
+- Original JS: inline scripts beginning around source lines 329, 334, and 490. `RXEngine` is defined in the second script; overlay/round UI code begins in the third.
+- The supplied file does **not** contain a `GAME_HTML` variable or a conventional standalone real-money game/cashout API. Its comments describe a demo overlay/signal engine and its wallet storage uses `localStorage`/extension storage. Do not treat that client-side balance as authoritative.
+- New reference-style Aviator presentation and demo-only bet controls are in `index.html` (`#aviator`) and `js/app.js`; styles are in `css/app.css`.
+- Demo bet/cashout deliberately do not change account balance. For any licensed real-money game, connect a provider's approved server-side game API and reconcile bets, rounds and payouts on the server. Do not replace the preserved original without regression tests.
 
-## Requests and history
-Users can add an optional message to deposit/withdraw requests. Admin sees that message alongside the request; users see the request status and message in their own history. Admin approval credits a deposit to the account ledger.
-
-## Access control and balance safety
-The front end now redirects guests to Login before opening Dashboard, Deposit, Withdraw, transaction history, or game views, including direct hash navigation. The backend remains the authority: it must reject withdrawals unless the authenticated account has sufficient available balance. Never deploy this site without the shared API/database configured; a front-end-only balance is not a real account balance. A deposit request showing `pending` is expected until an admin approves it; the balance must not increase before approval.
+## Included assets
+`assets/reference-layout.png` is the supplied reference screenshot for design documentation, not used as a website image. The logo and aircraft art are original inline SVG/CSS so there are no broken external image dependencies. Casino/sports/slots cards are stylized CSS illustrations, not third-party game logos.
 
 ## Important
-The included Aviator UI is not connected to the wallet ledger for real-money betting. Do not use this prototype to handle real funds without a professional security review, payment-provider reconciliation, appropriate licensing, and production controls.
+This is a prototype scaffold, not a ready-to-launch real-money gambling platform. Email delivery needs SMTP configuration. Obtain legal review and any required licenses before enabling real-money gambling or payment processing.
